@@ -3,84 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Drapeaux du Monde</title>
+    <title>Quiz 196 Drapeaux du Monde</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            background-color: #f4f4f9; 
-            padding: 20px; 
-        }
-        #game-box {
-            background: white;
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        #flag-container { 
-            height: 200px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            margin-bottom: 20px;
-        }
-        img { 
-            max-width: 100%; 
-            max-height: 100%; 
-            border: 1px solid #ddd;
-        }
-        input { 
-            padding: 12px; 
-            font-size: 18px; 
-            width: 80%; 
-            border: 2px solid #ccc; 
-            border-radius: 4px; 
-            text-align: center;
-        }
-        input:focus {
-            outline: none;
-            border-color: #007BFF;
-        }
-        .stats { 
-            margin-bottom: 20px; 
-            font-size: 20px; 
-            font-weight: bold;
-            color: #333; 
-        }
-        #message {
-            height: 24px;
-            margin-top: 15px;
-            font-weight: bold;
-            color: #28a745;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #eef2f3; padding: 20px; color: #333; }
+        #game-box { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        #flag-container { height: 220px; display: flex; align-items: center; justify-content: center; margin-bottom: 25px; background: #fafafa; border-radius: 8px; border: 1px dashed #ccc; }
+        img { max-width: 90%; max-height: 90%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        input { padding: 15px; font-size: 20px; width: 85%; border: 2px solid #ddd; border-radius: 30px; text-align: center; transition: border-color 0.3s; }
+        input:focus { outline: none; border-color: #007BFF; }
+        .stats { margin-bottom: 20px; font-size: 22px; font-weight: bold; color: #007BFF; }
+        #message { height: 28px; margin-top: 15px; font-weight: bold; font-size: 18px; color: #28a745; }
+        #progress-bar { width: 100%; background-color: #ddd; height: 10px; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
+        #progress-fill { width: 0%; height: 100%; background-color: #28a745; transition: width 0.3s; }
     </style>
 </head>
 <body>
 
     <div id="game-box">
-        <h1>Devinez le Pays</h1>
-        <div class="stats">Score: <span id="score">0</span> / <span id="total">196</span></div>
+        <h1>Drapeaux du Monde</h1>
+        <div class="stats">Pays trouvés : <span id="score">0</span> / 196</div>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
         
         <div id="flag-container">
             <img id="flag-image" src="" alt="Drapeau">
         </div>
         
-        <input type="text" id="guess-input" placeholder="Tapez le pays ici..." autofocus autocomplete="off">
+        <input type="text" id="guess-input" placeholder="Entrez le nom du pays..." autofocus autocomplete="off">
         <p id="message"></p>
     </div>
 
     <script>
-        // 1. La base de données (Il faudra ajouter les 196 ici)
-        // On utilise les codes pays à 2 lettres pour récupérer les drapeaux via l'API gratuite flagcdn.com
         const allCountries = [
-            { name: "France", code: "fr" },
-            { name: "Japon", code: "jp" },
-            { name: "Brésil", code: "br" },
-            { name: "Canada", code: "ca" },
-            { name: "Sénégal", code: "sn" },
-            { name: "États-Unis", code: "us" }
+            {name: "Afghanistan", code: "af"}, {name: "Afrique du Sud", code: "za"}, {name: "Albanie", code: "al"}, {name: "Algérie", code: "dz"}, {name: "Allemagne", code: "de"}, {name: "Andorre", code: "ad"}, {name: "Angola", code: "ao"}, {name: "Antigua-et-Barbuda", code: "ag"}, {name: "Arabie Saoudite", code: "sa"}, {name: "Argentine", code: "ar"}, {name: "Arménie", code: "am"}, {name: "Australie", code: "au"}, {name: "Autriche", code: "at"}, {name: "Azerbaïdjan", code: "az"}, {name: "Bahamas", code: "bs"}, {name: "Bahreïn", code: "bh"}, {name: "Bangladesh", code: "bd"}, {name: "Barbade", code: "bb"}, {name: "Belgique", code: "be"}, {name: "Belize", code: "bz"}, {name: "Bénin", code: "bj"}, {name: "Bhoutan", code: "bt"}, {name: "Biélorussie", code: "by"}, {name: "Birmanie", code: "mm"}, {name: "Bolivie", code: "bo"}, {name: "Bosnie-Herzégovine", code: "ba"}, {name: "Botswana", code: "bw"}, {name: "Brésil", code: "br"}, {name: "Brunei", code: "bn"}, {name: "Bulgarie", code: "bg"}, {name: "Burkina Faso", code: "bf"}, {name: "Burundi", code: "bi"}, {name: "Cambodge", code: "kh"}, {name: "Cameroun", code: "cm"}, {name: "Canada", code: "ca"}, {name: "Cap-Vert", code: "cv"}, {name: "Chili", code: "cl"}, {name: "Chine", code: "cn"}, {name: "Chypre", code: "cy"}, {name: "Colombie", code: "co"}, {name: "Comores", code: "km"}, {name: "Congo-Brazzaville", code: "cg"}, {name: "Congo-Kinshasa", code: "cd"}, {name: "Corée du Nord", code: "kp"}, {name: "Corée du Sud", code: "kr"}, {name: "Costa Rica", code: "cr"}, {name: "Côte d'Ivoire", code: "ci"}, {name: "Croatie", code: "hr"}, {name: "Cuba", code: "cu"}, {name: "Danemark", code: "dk"}, {name: "Djibouti", code: "dj"}, {name: "Dominique", code: "dm"}, {name: "Égypte", code: "eg"}, {name: "Émirats Arabes Unis", code: "ae"}, {name: "Équateur", code: "ec"}, {name: "Érythrée", code: "er"}, {name: "Espagne", code: "es"}, {name: "Estonie", code: "ee"}, {name: "Eswatini", code: "sz"}, {name: "États-Unis", code: "us"}, {name: "Éthiopie", code: "et"}, {name: "Fidji", code: "fj"}, {name: "Finlande", code: "fi"}, {name: "France", code: "fr"}, {name: "Gabon", code: "ga"}, {name: "Gambie", code: "gm"}, {name: "Géorgie", code: "ge"}, {name: "Ghana", code: "gh"}, {name: "Grèce", code: "gr"}, {name: "Grenade", code: "gd"}, {name: "Guatemala", code: "gt"}, {name: "Guinée", code: "gn"}, {name: "Guinée équatoriale", code: "gq"}, {name: "Guinée-Bissau", code: "gw"}, {name: "Guyana", code: "gy"}, {name: "Haïti", code: "ht"}, {name: "Honduras", code: "hn"}, {name: "Hongrie", code: "hu"}, {name: "Inde", code: "in"}, {name: "Indonésie", code: "id"}, {name: "Irak", code: "iq"}, {name: "Iran", code: "ir"}, {name: "Irlande", code: "ie"}, {name: "Islande", code: "is"}, {name: "Israël", code: "il"}, {name: "Italie", code: "it"}, {name: "Jamaïque", code: "jm"}, {name: "Japon", code: "jp"}, {name: "Jordanie", code: "jo"}, {name: "Kazakhstan", code: "kz"}, {name: "Kenya", code: "ke"}, {name: "Kirghizistan", code: "kg"}, {name: "Kiribati", code: "ki"}, {name: "Koweït", code: "kw"}, {name: "Laos", code: "la"}, {name: "Lesotho", code: "ls"}, {name: "Lettonie", code: "lv"}, {name: "Liban", code: "lb"}, {name: "Libéria", code: "lr"}, {name: "Libye", code: "ly"}, {name: "Liechtenstein", code: "li"}, {name: "Lituanie", code: "lt"}, {name: "Luxembourg", code: "lu"}, {name: "Macédoine du Nord", code: "mk"}, {name: "Madagascar", code: "mg"}, {name: "Malaisie", code: "my"}, {name: "Malawi", code: "mw"}, {name: "Maldives", code: "mv"}, {name: "Mali", code: "ml"}, {name: "Malte", code: "mt"}, {name: "Maroc", code: "ma"}, {name: "Marshall", code: "mh"}, {name: "Maurice", code: "mu"}, {name: "Mauritanie", code: "mr"}, {name: "Mexique", code: "mx"}, {name: "Micronésie", code: "fm"}, {name: "Moldavie", code: "md"}, {name: "Monaco", code: "mc"}, {name: "Mongolie", code: "mn"}, {name: "Monténégro", code: "me"}, {name: "Mozambique", code: "mz"}, {name: "Namibie", code: "na"}, {name: "Nauru", code: "nr"}, {name: "Népal", code: "np"}, {name: "Nicaragua", code: "ni"}, {name: "Niger", code: "ne"}, {name: "Nigeria", code: "ng"}, {name: "Norvège", code: "no"}, {name: "Nouvelle-Zélande", code: "nz"}, {name: "Oman", code: "om"}, {name: "Ouganda", code: "ug"}, {name: "Ouzbékistan", code: "uz"}, {name: "Pakistan", code: "pk"}, {name: "Palaos", code: "pw"}, {name: "Palestine", code: "ps"}, {name: "Panama", code: "pa"}, {name: "Papouasie-Nouvelle-Guinée", code: "pg"}, {name: "Paraguay", code: "py"}, {name: "Pays-Bas", code: "nl"}, {name: "Pérou", code: "pe"}, {name: "Philippines", code: "ph"}, {name: "Pologne", code: "pl"}, {name: "Portugal", code: "pt"}, {name: "Qatar", code: "qa"}, {name: "République Centrafricaine", code: "cf"}, {name: "République Dominicaine", code: "do"}, {name: "République Tchèque", code: "cz"}, {name: "Roumanie", code: "ro"}, {name: "Royaume-Uni", code: "gb"}, {name: "Russie", code: "ru"}, {name: "Rwanda", code: "rw"}, {name: "Saint-Christophe-et-Niévès", code: "kn"}, {name: "Sainte-Lucie", code: "lc"}, {name: "Saint-Marin", code: "sm"}, {name: "Saint-Vincent-et-les-Grenadines", code: "vc"}, {name: "Salomon", code: "sb"}, {name: "Salvador", code: "sv"}, {name: "Samoa", code: "ws"}, {name: "Sao Tomé-et-Principe", code: "st"}, {name: "Sénégal", code: "sn"}, {name: "Serbie", code: "rs"}, {name: "Seychelles", code: "sc"}, {name: "Sierra Leone", code: "sl"}, {name: "Singapour", code: "sg"}, {name: "Slovaquie", code: "sk"}, {name: "Slovénie", code: "si"}, {name: "Somalie", code: "so"}, {name: "Soudan", code: "sd"}, {name: "Soudan du Sud", code: "ss"}, {name: "Sri Lanka", code: "lk"}, {name: "Suède", code: "se"}, {name: "Suisse", code: "ch"}, {name: "Suriname", code: "sr"}, {name: "Syrie", code: "sy"}, {name: "Tadjikistan", code: "tj"}, {name: "Taïwan", code: "tw"}, {name: "Tanzanie", code: "tz"}, {name: "Tchad", code: "td"}, {name: "Thaïlande", code: "th"}, {name: "Timor oriental", code: "tl"}, {name: "Togo", code: "tg"}, {name: "Tonga", code: "to"}, {name: "Trinité-et-Tobago", code: "tt"}, {name: "Tunisie", code: "tn"}, {name: "Turkménistan", code: "tm"}, {name: "Turquie", code: "tr"}, {name: "Tuvalu", code: "tv"}, {name: "Ukraine", code: "ua"}, {name: "Uruguay", code: "uy"}, {name: "Vanuatu", code: "vu"}, {name: "Vatican", code: "va"}, {name: "Venezuela", code: "ve"}, {name: "Vietnam", code: "vn"}, {name: "Yémen", code: "ye"}, {name: "Zambie", code: "zm"}, {name: "Zimbabwe", code: "zw"}
         ];
 
         let remainingCountries = [...allCountries];
@@ -90,60 +44,48 @@
         const flagImage = document.getElementById('flag-image');
         const guessInput = document.getElementById('guess-input');
         const scoreDisplay = document.getElementById('score');
-        const totalDisplay = document.getElementById('total');
         const messageDisplay = document.getElementById('message');
+        const progressFill = document.getElementById('progress-fill');
 
-        totalDisplay.textContent = allCountries.length; // Pour l'instant ça affichera 6
-
-        // Fonction "magique" façon Jetpunk : ignore les majuscules, les accents et les tirets.
-        // Exemple : "Etats Unis" ou "etats-unis" sera lu comme "etatsunis"
         function normalizeText(text) {
             return text.toLowerCase()
-                       .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Enlève les accents
-                       .replace(/[-\s]/g, ""); // Enlève les espaces et tirets
+                       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                       .replace(/[^a-z0-9]/g, ""); // Enlève TOUT ce qui n'est pas lettre ou chiffre
         }
 
         function loadNextFlag() {
             if (remainingCountries.length === 0) {
                 flagImage.style.display = 'none';
                 guessInput.style.display = 'none';
-                messageDisplay.textContent = "🎉 Victoire ! Vous connaissez tous les drapeaux !";
+                messageDisplay.textContent = "🏆 FÉLICITATIONS ! Vous avez trouvé les 196 drapeaux !";
                 return;
             }
 
-            // Choisir un index au hasard
             const randomIndex = Math.floor(Math.random() * remainingCountries.length);
             currentCountry = remainingCountries[randomIndex];
-
-            // Le retirer de la liste pour ne pas l'avoir 2 fois (la règle que tu as demandée)
             remainingCountries.splice(randomIndex, 1);
 
-            // Charger l'image du drapeau
-            flagImage.src = `https://flagcdn.com/w320/${currentCountry.code}.png`;
+            flagImage.src = `https://flagcdn.com/w640/${currentCountry.code}.png`;
             guessInput.value = '';
             messageDisplay.textContent = '';
             guessInput.disabled = false;
             guessInput.focus();
         }
 
-        // Écouter chaque lettre tapée au clavier
         guessInput.addEventListener('input', (e) => {
             const userGuess = normalizeText(e.target.value);
             const correctAnswer = normalizeText(currentCountry.name);
 
-            // Si le texte correspond exactement, on valide automatiquement
             if (userGuess === correctAnswer) {
                 score++;
                 scoreDisplay.textContent = score;
-                messageDisplay.textContent = `Correct ! (${currentCountry.name})`;
-                guessInput.disabled = true; // Empêche de taper pendant le chargement du suivant
-                
-                // Attend 1 seconde pour qu'on voie le message de succès, puis passe au suivant
-                setTimeout(loadNextFlag, 1000); 
+                progressFill.style.width = (score / 196 * 100) + "%";
+                messageDisplay.textContent = `Excellent : ${currentCountry.name} !`;
+                guessInput.disabled = true;
+                setTimeout(loadNextFlag, 600);
             }
         });
 
-        // Démarrer la première partie
         loadNextFlag();
     </script>
 </body>
