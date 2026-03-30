@@ -9,12 +9,20 @@
         #game-box { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
         #flag-container { height: 220px; display: flex; align-items: center; justify-content: center; margin-bottom: 25px; background: #fafafa; border-radius: 8px; border: 1px dashed #ccc; }
         img { max-width: 90%; max-height: 90%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        input { padding: 15px; font-size: 20px; width: 85%; border: 2px solid #ddd; border-radius: 30px; text-align: center; transition: border-color 0.3s; }
+        input { padding: 15px; font-size: 20px; width: 85%; border: 2px solid #ddd; border-radius: 30px; text-align: center; transition: border-color 0.3s; margin-bottom: 10px; }
         input:focus { outline: none; border-color: #007BFF; }
         .stats { margin-bottom: 20px; font-size: 22px; font-weight: bold; color: #007BFF; }
-        #message { height: 28px; margin-top: 15px; font-weight: bold; font-size: 18px; color: #28a745; }
+        #message { height: 28px; margin-top: 5px; font-weight: bold; font-size: 18px; color: #28a745; }
         #progress-bar { width: 100%; background-color: #ddd; height: 10px; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
         #progress-fill { width: 0%; height: 100%; background-color: #28a745; transition: width 0.3s; }
+        
+        /* Nouveaux boutons */
+        .controls { margin-top: 15px; display: flex; justify-content: center; gap: 15px; }
+        button { padding: 12px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; transition: background 0.2s; }
+        #btn-next { background-color: #ffc107; color: #333; }
+        #btn-next:hover { background-color: #e0a800; }
+        #btn-end { background-color: #dc3545; color: white; }
+        #btn-end:hover { background-color: #c82333; }
     </style>
 </head>
 <body>
@@ -30,6 +38,11 @@
         
         <input type="text" id="guess-input" placeholder="Entrez le nom du pays..." autofocus autocomplete="off">
         <p id="message"></p>
+
+        <div class="controls" id="controls">
+            <button id="btn-next">Passer ⏭️</button>
+            <button id="btn-end">Terminer le jeu 🛑</button>
+        </div>
     </div>
 
     <script>
@@ -38,6 +51,7 @@
         ];
 
         let remainingCountries = [...allCountries];
+        let skippedCountries = []; // Nouvelle liste pour la boucle de fin
         let currentCountry = null;
         let score = 0;
 
@@ -46,32 +60,65 @@
         const scoreDisplay = document.getElementById('score');
         const messageDisplay = document.getElementById('message');
         const progressFill = document.getElementById('progress-fill');
+        const controls = document.getElementById('controls');
+        const btnNext = document.getElementById('btn-next');
+        const btnEnd = document.getElementById('btn-end');
 
         function normalizeText(text) {
             return text.toLowerCase()
                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                       .replace(/[^a-z0-9]/g, ""); // Enlève TOUT ce qui n'est pas lettre ou chiffre
+                       .replace(/[^a-z0-9]/g, ""); 
         }
 
-        function loadNextFlag() {
-            if (remainingCountries.length === 0) {
-                flagImage.style.display = 'none';
-                guessInput.style.display = 'none';
+        // Fonction pour afficher l'écran de fin
+        function endGame(victory = false) {
+            flagImage.style.display = 'none';
+            guessInput.style.display = 'none';
+            controls.style.display = 'none';
+            
+            if (victory) {
                 messageDisplay.textContent = "🏆 FÉLICITATIONS ! Vous avez trouvé les 196 drapeaux !";
+                messageDisplay.style.color = "#28a745";
+            } else {
+                messageDisplay.textContent = `🛑 Jeu terminé. Vous connaissez ${score} drapeaux sur 196.`;
+                messageDisplay.style.color = "#333";
+            }
+        }
+
+        function loadNextFlag(isSkipped = false) {
+            // Si le joueur clique sur "Passer", on garde le pays actuel pour la fin
+            if (isSkipped && currentCountry !== null) {
+                skippedCountries.push(currentCountry);
+            }
+
+            // Phase 1 : Tirage aléatoire tant qu'il reste des pays non vus
+            if (remainingCountries.length > 0) {
+                const randomIndex = Math.floor(Math.random() * remainingCountries.length);
+                currentCountry = remainingCountries[randomIndex];
+                remainingCountries.splice(randomIndex, 1);
+            } 
+            // Phase 2 : On boucle sur les pays ignorés dans l'ordre (avec .shift() on prend le premier de la file)
+            else if (skippedCountries.length > 0) {
+                currentCountry = skippedCountries.shift(); 
+            } 
+            // Phase 3 : Plus de pays restants et plus de pays ignorés = Victoire
+            else {
+                endGame(true);
                 return;
             }
 
-            const randomIndex = Math.floor(Math.random() * remainingCountries.length);
-            currentCountry = remainingCountries[randomIndex];
-            remainingCountries.splice(randomIndex, 1);
-
+            // Affichage du nouveau drapeau
             flagImage.src = `https://flagcdn.com/w640/${currentCountry.code}.png`;
             guessInput.value = '';
             messageDisplay.textContent = '';
+            
+            // Réactiver les champs
             guessInput.disabled = false;
+            btnNext.disabled = false;
             guessInput.focus();
         }
 
+        // Événement 1 : Validation automatique pendant la frappe
         guessInput.addEventListener('input', (e) => {
             const userGuess = normalizeText(e.target.value);
             const correctAnswer = normalizeText(currentCountry.name);
@@ -80,13 +127,45 @@
                 score++;
                 scoreDisplay.textContent = score;
                 progressFill.style.width = (score / 196 * 100) + "%";
+                
+                messageDisplay.style.color = "#28a745";
                 messageDisplay.textContent = `Excellent : ${currentCountry.name} !`;
+                
+                // Désactiver pendant le court chargement pour éviter les bugs
                 guessInput.disabled = true;
-                setTimeout(loadNextFlag, 600);
+                btnNext.disabled = true;
+                currentCountry = null; // Empêche de l'ajouter aux pays passés si on spam clique
+                
+                setTimeout(() => loadNextFlag(false), 600);
             }
         });
 
-        loadNextFlag();
+        // Événement 2 : Appui sur la touche "Entrée" pour signaler une erreur
+        guessInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const userGuess = normalizeText(e.target.value);
+                const correctAnswer = normalizeText(currentCountry.name);
+                
+                // Si ce n'est pas vide et que c'est faux (si c'est bon, l'événement 'input' au-dessus s'en charge)
+                if (userGuess !== correctAnswer && e.target.value.trim() !== "") {
+                    messageDisplay.style.color = "#dc3545"; // Rouge
+                    messageDisplay.textContent = "❌ Incorrect !";
+                    // Le texte disparaîtra quand l'utilisateur cliquera sur "Passer" ou trouvera la réponse.
+                }
+            }
+        });
+
+        // Boutons
+        btnNext.addEventListener('click', () => {
+            loadNextFlag(true); // true = le pays est mis dans la file d'attente
+        });
+
+        btnEnd.addEventListener('click', () => {
+            endGame(false); // false = on arrête avant d'avoir tout trouvé
+        });
+
+        // Démarrage
+        loadNextFlag(false);
     </script>
 </body>
 </html>
