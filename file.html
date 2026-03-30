@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Drapeaux du Monde</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background-color: #f4f4f9; 
+            padding: 20px; 
+        }
+        #game-box {
+            background: white;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        #flag-container { 
+            height: 200px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin-bottom: 20px;
+        }
+        img { 
+            max-width: 100%; 
+            max-height: 100%; 
+            border: 1px solid #ddd;
+        }
+        input { 
+            padding: 12px; 
+            font-size: 18px; 
+            width: 80%; 
+            border: 2px solid #ccc; 
+            border-radius: 4px; 
+            text-align: center;
+        }
+        input:focus {
+            outline: none;
+            border-color: #007BFF;
+        }
+        .stats { 
+            margin-bottom: 20px; 
+            font-size: 20px; 
+            font-weight: bold;
+            color: #333; 
+        }
+        #message {
+            height: 24px;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-box">
+        <h1>Devinez le Pays</h1>
+        <div class="stats">Score: <span id="score">0</span> / <span id="total">196</span></div>
+        
+        <div id="flag-container">
+            <img id="flag-image" src="" alt="Drapeau">
+        </div>
+        
+        <input type="text" id="guess-input" placeholder="Tapez le pays ici..." autofocus autocomplete="off">
+        <p id="message"></p>
+    </div>
+
+    <script>
+        // 1. La base de données (Il faudra ajouter les 196 ici)
+        // On utilise les codes pays à 2 lettres pour récupérer les drapeaux via l'API gratuite flagcdn.com
+        const allCountries = [
+            { name: "France", code: "fr" },
+            { name: "Japon", code: "jp" },
+            { name: "Brésil", code: "br" },
+            { name: "Canada", code: "ca" },
+            { name: "Sénégal", code: "sn" },
+            { name: "États-Unis", code: "us" }
+        ];
+
+        let remainingCountries = [...allCountries];
+        let currentCountry = null;
+        let score = 0;
+
+        const flagImage = document.getElementById('flag-image');
+        const guessInput = document.getElementById('guess-input');
+        const scoreDisplay = document.getElementById('score');
+        const totalDisplay = document.getElementById('total');
+        const messageDisplay = document.getElementById('message');
+
+        totalDisplay.textContent = allCountries.length; // Pour l'instant ça affichera 6
+
+        // Fonction "magique" façon Jetpunk : ignore les majuscules, les accents et les tirets.
+        // Exemple : "Etats Unis" ou "etats-unis" sera lu comme "etatsunis"
+        function normalizeText(text) {
+            return text.toLowerCase()
+                       .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Enlève les accents
+                       .replace(/[-\s]/g, ""); // Enlève les espaces et tirets
+        }
+
+        function loadNextFlag() {
+            if (remainingCountries.length === 0) {
+                flagImage.style.display = 'none';
+                guessInput.style.display = 'none';
+                messageDisplay.textContent = "🎉 Victoire ! Vous connaissez tous les drapeaux !";
+                return;
+            }
+
+            // Choisir un index au hasard
+            const randomIndex = Math.floor(Math.random() * remainingCountries.length);
+            currentCountry = remainingCountries[randomIndex];
+
+            // Le retirer de la liste pour ne pas l'avoir 2 fois (la règle que tu as demandée)
+            remainingCountries.splice(randomIndex, 1);
+
+            // Charger l'image du drapeau
+            flagImage.src = `https://flagcdn.com/w320/${currentCountry.code}.png`;
+            guessInput.value = '';
+            messageDisplay.textContent = '';
+            guessInput.disabled = false;
+            guessInput.focus();
+        }
+
+        // Écouter chaque lettre tapée au clavier
+        guessInput.addEventListener('input', (e) => {
+            const userGuess = normalizeText(e.target.value);
+            const correctAnswer = normalizeText(currentCountry.name);
+
+            // Si le texte correspond exactement, on valide automatiquement
+            if (userGuess === correctAnswer) {
+                score++;
+                scoreDisplay.textContent = score;
+                messageDisplay.textContent = `Correct ! (${currentCountry.name})`;
+                guessInput.disabled = true; // Empêche de taper pendant le chargement du suivant
+                
+                // Attend 1 seconde pour qu'on voie le message de succès, puis passe au suivant
+                setTimeout(loadNextFlag, 1000); 
+            }
+        });
+
+        // Démarrer la première partie
+        loadNextFlag();
+    </script>
+</body>
+</html>
