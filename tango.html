@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu Tango - Lunes et Soleils</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        h1 { margin-bottom: 5px; }
+        .instructions { font-size: 0.9em; color: #aaa; margin-bottom: 20px; text-align: center; max-width: 450px; line-height: 1.4; }
+        
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 450px;
+            margin-bottom: 15px;
+        }
+        
+        .timer {
+            font-size: 28px;
+            font-family: monospace;
+            font-weight: bold;
+            color: #ffcc00;
+            background: #2a2a40;
+            padding: 5px 15px;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .board-container {
+            position: relative;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(5, 60px 20px) 60px;
+            grid-template-rows: repeat(5, 60px 20px) 60px;
+            gap: 0;
+            background-color: #2a2a40;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .pause-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(30, 30, 47, 0.95);
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            font-size: 32px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background-color: #3b3b5c;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .cell:hover:not(.fixed) { background-color: #4c4c77; }
+        .cell.fixed { background-color: #2a2a40; cursor: default; }
+        .cell.error { box-shadow: 0 0 10px 2px #ff4444 inset; }
+
+        .h-link, .v-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: #ffcc00;
+            user-select: none;
+            font-family: monospace;
+        }
+
+        .controls { margin-top: 30px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #0056b3; }
+        
+        button.pause { background-color: #6c757d; padding: 8px 15px; font-size: 14px; }
+        button.pause:hover { background-color: #5a6268; }
+
+        button.reset { background-color: #f39c12; }
+        button.reset:hover { background-color: #e67e22; }
+
+        button.check { background-color: #28a745; }
+        button.check:hover { background-color: #1e7e34; }
+        
+        #message { margin-top: 20px; font-size: 1.2em; font-weight: bold; height: 24px; text-align: center;}
+    </style>
+</head>
+<body>
+
+    <h1>Tango</h1>
+    <div class="instructions">
+        Cliquez sur les cases pour placer ☀️ ou 🌙.<br>
+        <strong>Règles :</strong> 3 ☀️ et 3 🌙 par ligne et colonne. Max 2 symboles identiques côte à côte. 
+        "<strong>=</strong>" : même symbole, "<strong>x</strong>" : symbole différent.
+    </div>
+
+    <div class="header-controls">
+        <div class="timer" id="timer">00:00</div>
+        <button class="pause" id="pauseBtn" onclick="togglePause()">Pause</button>
+    </div>
+
+    <div class="board-container">
+        <div class="game-board" id="board"></div>
+        <div class="pause-overlay" id="pauseOverlay">
+            Jeu en pause ⏸️
+            <button class="check" style="margin-top: 20px;" onclick="togglePause()">Reprendre</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="initGame()">Nouveau Jeu</button>
+        <button class="reset" onclick="resetGrid()">Réinitialiser</button>
+        <button class="check" onclick="checkWin()">Vérifier</button>
+    </div>
+    <div id="message"></div>
+
+    <script>
+        const SIZE = 6;
+        const EMPTY = 0, SUN = 1, MOON = 2;
+        let currentGrid = [], solutionGrid = [];
+        let hLinks = [], vLinks = []; 
+        let isFixed = [];
+
+        let timerInterval;
+        let secondsElapsed = 0;
+        let isPaused = false;
+        let gameActive = false; 
+
+        function formatTime(seconds) {
+            let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            let s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateTimer() {
+            if (!isPaused && gameActive) {
+                secondsElapsed++;
+                document.getElementById('timer').innerText = formatTime(secondsElapsed);
+            }
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            secondsElapsed = 0;
+            isPaused = false;
+            gameActive = true;
+            document.getElementById('timer').innerText = "00:00";
+            document.getElementById('pauseBtn').innerText = "Pause";
+            document.getElementById('pauseOverlay').style.display = "none";
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function togglePause() {
+            if (!gameActive) return; 
+
+            isPaused = !isPaused;
+            const overlay = document.getElementById('pauseOverlay');
+            const btn = document.getElementById('pauseBtn');
+            
+            if (isPaused) {
+                overlay.style.display = "flex"; 
+                btn.innerText = "Reprendre";
+            } else {
+                overlay.style.display = "none"; 
+                btn.innerText = "Pause";
+            }
+        }
+
+        function isValid(grid, hL, vL, r, c, val) {
+            let countRow = 0, countCol = 0;
+            for (let i = 0; i < SIZE; i++) {
+                if (grid[r][i] === val) countRow++;
+                if (grid[i][c] === val) countCol++;
+            }
+            if (countRow >= 3 || countCol >= 3) return false;
+
+            let cons = 1;
+            for(let i=c-1; i>=0; i--) { if(grid[r][i]===val) cons++; else break; }
+            for(let i=c+1; i<SIZE; i++) { if(grid[r][i]===val) cons++; else break; }
+            if (cons > 2) return false;
+
+            cons = 1;
+            for(let i=r-1; i>=0; i--) { if(grid[i][c]===val) cons++; else break; }
+            for(let i=r+1; i<SIZE; i++) { if(grid[i][c]===val) cons++; else break; }
+            if (cons > 2) return false;
+
+            if (c > 0 && grid[r][c-1] !== EMPTY && hL[r][c-1] !== 0) {
+                if (hL[r][c-1] === 1 && grid[r][c-1] !== val) return false;
+                if (hL[r][c-1] === 2 && grid[r][c-1] === val) return false;
+            }
+            if (c < SIZE-1 && grid[r][c+1] !== EMPTY && hL[r][c] !== 0) {
+                if (hL[r][c] === 1 && grid[r][c+1] !== val) return false;
+                if (hL[r][c] === 2 && grid[r][c+1] === val) return false;
+            }
+            if (r > 0 && grid[r-1][c] !== EMPTY && vL[r-1][c] !== 0) {
+                if (vL[r-1][c] === 1 && grid[r-1][c] !== val) return false;
+                if (vL[r-1][c] === 2 && grid[r-1][c] === val) return false;
+            }
+            if (r < SIZE-1 && grid[r+1][c] !== EMPTY && vL[r][c] !== 0) {
+                if (vL[r][c] === 1 && grid[r+1][c] !== val) return false;
+                if (vL[r][c] === 2 && grid[r+1][c] === val) return false;
+            }
+            return true;
+        }
+
+        function generateFullBoard() {
+            let grid = Array.from({length: SIZE}, () => Array(SIZE).fill(EMPTY));
+            let emptyLinks = Array.from({length: SIZE}, () => Array(SIZE).fill(0));
+            
+            function fill(r, c) {
+                if (r === SIZE) return true;
+                let nextC = c === SIZE - 1 ? 0 : c + 1;
+                let nextR = c === SIZE - 1 ? r + 1 : r;
+                
+                let prevH = c > 0 ? grid[r][c-1] : EMPTY;
+                let prefer = EMPTY;
+                if (prevH !== EMPTY) prefer = prevH === SUN ? MOON : SUN; 
+                
+                let choices;
+                if (prefer !== EMPTY) {
+                    choices = Math.random() > 0.25 ? [prefer, prefer === SUN ? MOON : SUN] : [prefer === SUN ? MOON : SUN, prefer];
+                } else {
+                    choices = Math.random() > 0.5 ? [SUN, MOON] : [MOON, SUN];
+                }
+
+                for (let v of choices) {
+                    if (isValid(grid, emptyLinks, emptyLinks, r, c, v)) {
+                        grid[r][c] = v;
+                        if (fill(nextR, nextC)) return true;
+                        grid[r][c] = EMPTY;
+                    }
+                }
+                return false;
+            }
+            fill(0, 0);
+            return grid;
+        }
+
+        function generatePuzzle() {
+            let fullGrid = generateFullBoard();
+            solutionGrid = fullGrid.map(row => [...row]);
+
+            currentGrid = fullGrid.map(row => [...row]);
+            isFixed = Array.from({length: SIZE}, () => Array(SIZE).fill(true));
+            hLinks = Array.from({length: SIZE}, () => Array(SIZE-1).fill(0));
+            vLinks = Array.from({length: SIZE-1}, () => Array(SIZE).fill(0));
+
+            let allClues = [];
+            
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    allClues.push({type: 'cell', r, c});
+                    if (c < SIZE-1) {
+                        hLinks[r][c] = fullGrid[r][c] === fullGrid[r][c+1] ? 1 : 2;
+                        allClues.push({type: 'hlink', r, c});
+                    }
+                    if (r < SIZE-1) {
+                        vLinks[r][c] = fullGrid[r][c] === fullGrid[r+1][c] ? 1 : 2;
+                        allClues.push({type: 'vlink', r, c});
+                    }
+                }
+            }
+
+            // LE JUSTE MILIEU : Un mélange parfaitement aléatoire !
+            // L'algorithme va essayer d'effacer les cases et les signes sans aucune préférence.
+            allClues.sort(() => Math.random() - 0.5);
+
+            for (let clue of allClues) {
+                let backup;
+                if (clue.type === 'cell') {
+                    backup = currentGrid[clue.r][clue.c];
+                    currentGrid[clue.r][clue.c] = EMPTY;
+                    isFixed[clue.r][clue.c] = false;
+                } else if (clue.type === 'hlink') {
+                    backup = hLinks[clue.r][clue.c];
+                    hLinks[clue.r][clue.c] = 0;
+                } else if (clue.type === 'vlink') {
+                    backup = vLinks[clue.r][clue.c];
+                    vLinks[clue.r][clue.c] = 0;
+                }
+
+                let solutions = 0;
+                let testGrid = currentGrid.map(row => [...row]);
+                
+                function solve(r, c) {
+                    if (solutions > 1) return;
+                    if (r === SIZE) { solutions++; return; }
+                    
+                    let nextC = c === SIZE - 1 ? 0 : c + 1;
+                    let nextR = c === SIZE - 1 ? r + 1 : r;
+
+                    if (testGrid[r][c] !== EMPTY) {
+                        solve(nextR, nextC);
+                        return;
+                    }
+
+                    for (let v of [SUN, MOON]) {
+                        if (isValid(testGrid, hLinks, vLinks, r, c, v)) {
+                            testGrid[r][c] = v;
+                            solve(nextR, nextC);
+                            testGrid[r][c] = EMPTY;
+                        }
+                    }
+                }
+                solve(0, 0);
+
+                if (solutions !== 1) {
+                    if (clue.type === 'cell') {
+                        currentGrid[clue.r][clue.c] = backup;
+                        isFixed[clue.r][clue.c] = true;
+                    } else if (clue.type === 'hlink') {
+                        hLinks[clue.r][clue.c] = backup;
+                    } else if (clue.type === 'vlink') {
+                        vLinks[clue.r][clue.c] = backup;
+                    }
+                }
+            }
+        }
+
+        function drawBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    let cell = document.createElement('div');
+                    cell.className = 'cell' + (isFixed[r][c] ? ' fixed' : '');
+                    cell.style.gridRow = r * 2 + 1;
+                    cell.style.gridColumn = c * 2 + 1;
+                    cell.innerText = currentGrid[r][c] === SUN ? '☀️' : (currentGrid[r][c] === MOON ? '🌙' : '');
+                    
+                    if (!isFixed[r][c]) {
+                        cell.onclick = () => {
+                            if (isPaused || !gameActive) return; 
+                            
+                            currentGrid[r][c] = (currentGrid[r][c] + 1) % 3;
+                            cell.innerText = currentGrid[r][c] === SUN ? '☀️' : (currentGrid[r][c] === MOON ? '🌙' : '');
+                            document.getElementById('message').innerText = "";
+                            cell.classList.remove('error');
+                        };
+                    }
+                    board.appendChild(cell);
+
+                    if (c < SIZE - 1 && hLinks[r][c] !== 0) {
+                        let hl = document.createElement('div');
+                        hl.className = 'h-link';
+                        hl.style.gridRow = r * 2 + 1;
+                        hl.style.gridColumn = c * 2 + 2;
+                        hl.innerText = hLinks[r][c] === 1 ? '=' : 'x';
+                        board.appendChild(hl);
+                    }
+                }
+                if (r < SIZE - 1) {
+                    for (let c = 0; c < SIZE; c++) {
+                        if (vLinks[r][c] !== 0) {
+                            let vl = document.createElement('div');
+                            vl.className = 'v-link';
+                            vl.style.gridRow = r * 2 + 2;
+                            vl.style.gridColumn = c * 2 + 1;
+                            vl.innerText = vLinks[r][c] === 1 ? '=' : 'x';
+                            board.appendChild(vl);
+                        }
+                    }
+                }
+            }
+        }
+
+        function resetGrid() {
+            if (!gameActive) return; 
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    if (!isFixed[r][c]) {
+                        currentGrid[r][c] = EMPTY;
+                    }
+                }
+            }
+            drawBoard();
+            document.getElementById('message').innerText = "";
+        }
+
+        function checkWin() {
+            if (!gameActive) return;
+
+            let win = true;
+            let cells = document.querySelectorAll('.cell');
+            
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    let index = r * SIZE + c;
+                    cells[index].classList.remove('error');
+                    
+                    if (currentGrid[r][c] === EMPTY || currentGrid[r][c] !== solutionGrid[r][c]) {
+                        win = false;
+                        if (currentGrid[r][c] !== EMPTY && !isFixed[r][c]) {
+                            cells[index].classList.add('error');
+                        }
+                    }
+                }
+            }
+
+            const msg = document.getElementById('message');
+            if (win) {
+                gameActive = false; 
+                clearInterval(timerInterval); 
+                document.getElementById('pauseBtn').disabled = true; 
+                msg.style.color = "#28a745";
+                msg.innerText = "Félicitations ! 🎉 Temps : " + formatTime(secondsElapsed);
+            } else {
+                msg.style.color = "#ff4444";
+                msg.innerText = "Il y a des erreurs ou la grille est incomplète.";
+            }
+        }
+
+        function initGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            document.getElementById('timer').innerText = "00:00";
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('pauseOverlay').style.display = "none";
+            document.getElementById('message').style.color = "#fff";
+            document.getElementById('message').innerText = "Génération de la grille...";
+            
+            setTimeout(() => {
+                generatePuzzle();
+                drawBoard();
+                document.getElementById('message').innerText = "";
+                startTimer(); 
+            }, 50);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
