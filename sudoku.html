@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HexaSudoku Generator - Style LinkedIn</title>
+    <style>
+        body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f3f2ef; color: #000000e6; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 50px; text-align: center; }
+        h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 0.9rem; }
+        
+        table { border-collapse: collapse; margin: 0 auto; border: 3px solid #333; }
+        td { width: 50px; height: 50px; border: 1px solid #ccc; text-align: center; font-size: 1.2rem; font-weight: bold; position: relative; }
+        
+        /* Séparation des blocs 2x3 */
+        td:nth-child(3n) { border-right: 3px solid #333; }
+        td:last-child { border-right: 1px solid #ccc; } /* Reset pour le bord droit externe */
+        tr:nth-child(2n) td { border-bottom: 3px solid #333; }
+        tr:last-child td { border-bottom: 1px solid #ccc; }
+
+        .fixed { background-color: #e7f3ff; color: #0a66c2; }
+        .empty { color: transparent; }
+        
+        button { background-color: #0a66c2; color: white; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: 0.2s; }
+        button:hover { background-color: #004182; }
+        .controls { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🧩 HexaSudoku</h1>
+    <p class="subtitle">Complétez la grille de 1 à 6</p>
+
+    <div id="grid-container"></div>
+
+    <div class="controls">
+        <button onclick="generateNewGame()">Générer une nouvelle grille</button>
+        <button onclick="revealSolution()" style="background-color: #666;">Voir Solution</button>
+    </div>
+</div>
+
+<script>
+    let currentGrid = [];
+    let solvedGrid = [];
+
+    function generateNewGame() {
+        // 1. Initialiser une grille vide
+        solvedGrid = Array.from({ length: 6 }, () => Array(6).fill(0));
+        fillSudoku(solvedGrid);
+        
+        // 2. Créer le puzzle en retirant des chiffres (environ 18-20 indices restants)
+        currentGrid = solvedGrid.map(row => [...row]);
+        let attempts = 18; 
+        while (attempts > 0) {
+            let r = Math.floor(Math.random() * 6);
+            let c = Math.floor(Math.random() * 6);
+            if (currentGrid[r][c] !== 0) {
+                currentGrid[r][c] = 0;
+                attempts--;
+            }
+        }
+        renderGrid(currentGrid);
+    }
+
+    function fillSudoku(grid) {
+        for (let row = 0; row < 6; row++) {
+            for (let col = 0; col < 6; col++) {
+                if (grid[row][col] === 0) {
+                    let nums = [1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5);
+                    for (let num of nums) {
+                        if (isValid(grid, row, col, num)) {
+                            grid[row][col] = num;
+                            if (fillSudoku(grid)) return true;
+                            grid[row][col] = 0;
+                        }
+                    }
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    function isValid(grid, row, col, num) {
+        // Ligne et colonne
+        for (let i = 0; i < 6; i++) {
+            if (grid[row][i] === num || grid[i][col] === num) return false;
+        }
+        // Bloc 2x3
+        let startRow = Math.floor(row / 2) * 2;
+        let startCol = Math.floor(col / 3) * 3;
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (grid[startRow + i][startCol + j] === num) return false;
+            }
+        }
+        return true;
+    }
+
+    function renderGrid(grid) {
+        let html = '<table>';
+        for (let r = 0; r < 6; r++) {
+            html += '<tr>';
+            for (let c = 0; c < 6; c++) {
+                let val = grid[r][c];
+                let className = val !== 0 ? 'fixed' : 'empty';
+                html += `<td class="${className}">${val !== 0 ? val : ''}</td>`;
+            }
+            html += '</tr>';
+        }
+        html += '</table>';
+        document.getElementById('grid-container').innerHTML = html;
+    }
+
+    function revealSolution() {
+        renderGrid(solvedGrid);
+    }
+
+    // Lancer au démarrage
+    generateNewGame();
+</script>
+
+</body>
+</html>
+
