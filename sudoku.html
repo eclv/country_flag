@@ -3,77 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HexaSudoku Generator - Style LinkedIn</title>
+    <title>HexaSudoku Interactif</title>
     <style>
-        body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f3f2ef; color: #000000e6; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 50px; text-align: center; }
-        h1 { font-size: 1.5rem; margin-bottom: 5px; }
-        .subtitle { color: #666; margin-bottom: 20px; font-size: 0.9rem; }
-        
-        table { border-collapse: collapse; margin: 0 auto; border: 3px solid #333; }
-        td { width: 50px; height: 50px; border: 1px solid #ccc; text-align: center; font-size: 1.2rem; font-weight: bold; position: relative; }
-        
-        /* Séparation des blocs 2x3 */
-        td:nth-child(3n) { border-right: 3px solid #333; }
-        td:last-child { border-right: 1px solid #ccc; } /* Reset pour le bord droit externe */
-        tr:nth-child(2n) td { border-bottom: 3px solid #333; }
-        tr:last-child td { border-bottom: 1px solid #ccc; }
+        :root {
+            --li-blue: #0a66c2;
+            --li-bg: #f3f2ef;
+            --error-red: #d11124;
+            --success-green: #057642;
+        }
 
-        .fixed { background-color: #e7f3ff; color: #0a66c2; }
-        .empty { color: transparent; }
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--li-bg); display: flex; justify-content: center; padding: 20px; }
+        .game-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
         
-        button { background-color: #0a66c2; color: white; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: 0.2s; }
-        button:hover { background-color: #004182; }
-        .controls { margin-bottom: 20px; }
+        h1 { font-size: 1.4rem; margin: 0 0 10px 0; }
+        .timer-box { font-variant-numeric: tabular-nums; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        
+        table { border-collapse: collapse; margin: 0 auto; border: 3px solid #333; table-layout: fixed; width: 300px; height: 300px; }
+        td { border: 1px solid #ccc; padding: 0; position: relative; }
+        
+        /* Structure du Sudoku 6x6 (blocs 2x3) */
+        td:nth-child(3n) { border-right: 3px solid #333; }
+        tr:nth-child(2n) td { border-bottom: 3px solid #333; }
+        tr:last-child td { border-bottom: 3px solid #333; }
+        td:last-child { border-right: 3px solid #333; }
+
+        input {
+            width: 100%; height: 100%; border: none; text-align: center; font-size: 1.3rem;
+            font-weight: bold; outline: none; background: transparent; transition: all 0.2s;
+        }
+
+        .fixed-cell { background-color: #f8f9fa; color: #000; }
+        .user-cell { color: var(--li-blue); cursor: pointer; }
+        .user-cell:focus { background-color: #e7f3ff; }
+        .error { color: var(--error-red) !important; background-color: #fee; }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        button {
+            padding: 10px; border-radius: 24px; border: 1px solid var(--li-blue);
+            font-weight: 600; cursor: pointer; transition: 0.2s;
+        }
+        .primary-btn { background: var(--li-blue); color: white; }
+        .secondary-btn { background: white; color: var(--li-blue); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .hidden { display: none; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 10; display: flex; align-items: center; justify-content: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="game-card">
     <h1>🧩 HexaSudoku</h1>
-    <p class="subtitle">Complétez la grille de 1 à 6</p>
+    
+    <div class="timer-box">
+        <span id="timer-display">00:00</span>
+        <button onclick="togglePause()" id="pause-btn" class="secondary-btn" style="padding: 2px 12px; font-size: 0.8rem;">Pause</button>
+    </div>
 
-    <div id="grid-container"></div>
+    <div style="position: relative;">
+        <div id="pause-overlay" class="overlay hidden">PAUSE</div>
+        <div id="grid-container"></div>
+    </div>
 
     <div class="controls">
-        <button onclick="generateNewGame()">Générer une nouvelle grille</button>
-        <button onclick="revealSolution()" style="background-color: #666;">Voir Solution</button>
+        <button class="primary-btn" onclick="generateNewGame()">Nouveau</button>
+        <button class="secondary-btn" onclick="checkGrid()">Vérifier</button>
+        <button class="secondary-btn" onclick="solvePuzzle()">Solution</button>
+        <button class="secondary-btn" onclick="clearUserInputs()">Effacer</button>
     </div>
 </div>
 
 <script>
-    let currentGrid = [];
     let solvedGrid = [];
+    let initialGrid = [];
+    let seconds = 0;
+    let timerInterval;
+    let isPaused = false;
 
-    function generateNewGame() {
-        // 1. Initialiser une grille vide
-        solvedGrid = Array.from({ length: 6 }, () => Array(6).fill(0));
-        fillSudoku(solvedGrid);
-        
-        // 2. Créer le puzzle en retirant des chiffres (environ 18-20 indices restants)
-        currentGrid = solvedGrid.map(row => [...row]);
-        let attempts = 18; 
-        while (attempts > 0) {
-            let r = Math.floor(Math.random() * 6);
-            let c = Math.floor(Math.random() * 6);
-            if (currentGrid[r][c] !== 0) {
-                currentGrid[r][c] = 0;
-                attempts--;
+    function startTimer() {
+        clearInterval(timerInterval);
+        seconds = 0;
+        timerInterval = setInterval(() => {
+            if(!isPaused) {
+                seconds++;
+                let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                let s = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${m}:${s}`;
             }
-        }
-        renderGrid(currentGrid);
+        }, 1000);
     }
 
-    function fillSudoku(grid) {
-        for (let row = 0; row < 6; row++) {
-            for (let col = 0; col < 6; col++) {
-                if (grid[row][col] === 0) {
-                    let nums = [1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5);
-                    for (let num of nums) {
-                        if (isValid(grid, row, col, num)) {
-                            grid[row][col] = num;
-                            if (fillSudoku(grid)) return true;
-                            grid[row][col] = 0;
+    function togglePause() {
+        isPaused = !isPaused;
+        document.getElementById('pause-overlay').classList.toggle('hidden');
+        document.getElementById('pause-btn').innerText = isPaused ? "Reprendre" : "Pause";
+    }
+
+    function isValid(grid, r, c, n) {
+        for (let i = 0; i < 6; i++) if (grid[r][i] === n || grid[i][c] === n) return false;
+        let startR = Math.floor(r / 2) * 2, startC = Math.floor(c / 3) * 3;
+        for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) if (grid[startR + i][startC + j] === n) return false;
+        return true;
+    }
+
+    function solve(grid) {
+        for (let r = 0; r < 6; r++) {
+            for (let c = 0; c < 6; c++) {
+                if (grid[r][c] === 0) {
+                    let nums = [1,2,3,4,5,6].sort(() => Math.random() - 0.5);
+                    for (let n of nums) {
+                        if (isValid(grid, r, c, n)) {
+                            grid[r][c] = n;
+                            if (solve(grid)) return true;
+                            grid[r][c] = 0;
                         }
                     }
                     return false;
@@ -83,42 +125,76 @@
         return true;
     }
 
-    function isValid(grid, row, col, num) {
-        // Ligne et colonne
-        for (let i = 0; i < 6; i++) {
-            if (grid[row][i] === num || grid[i][col] === num) return false;
-        }
-        // Bloc 2x3
-        let startRow = Math.floor(row / 2) * 2;
-        let startCol = Math.floor(col / 3) * 3;
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 3; j++) {
-                if (grid[startRow + i][startCol + j] === num) return false;
+    function generateNewGame() {
+        solvedGrid = Array.from({ length: 6 }, () => Array(6).fill(0));
+        solve(solvedGrid);
+        
+        initialGrid = solvedGrid.map(row => [...row]);
+        let cellsToRemove = 18; // Difficulté
+        while (cellsToRemove > 0) {
+            let r = Math.floor(Math.random() * 6), c = Math.floor(Math.random() * 6);
+            if (initialGrid[r][c] !== 0) {
+                initialGrid[r][c] = 0;
+                cellsToRemove--;
             }
         }
-        return true;
+        renderGrid();
+        startTimer();
+        isPaused = false;
+        document.getElementById('pause-overlay').classList.add('hidden');
     }
 
-    function renderGrid(grid) {
+    function renderGrid() {
         let html = '<table>';
         for (let r = 0; r < 6; r++) {
             html += '<tr>';
             for (let c = 0; c < 6; c++) {
-                let val = grid[r][c];
-                let className = val !== 0 ? 'fixed' : 'empty';
-                html += `<td class="${className}">${val !== 0 ? val : ''}</td>`;
+                let val = initialGrid[r][c];
+                if (val !== 0) {
+                    html += `<td class="fixed-cell"><input value="${val}" disabled></td>`;
+                } else {
+                    html += `<td class="user-cell"><input type="number" min="1" max="6" oninput="this.value = this.value.slice(0, 1)" data-r="${r}" data-c="${c}"></td>`;
+                }
             }
             html += '</tr>';
         }
-        html += '</table>';
-        document.getElementById('grid-container').innerHTML = html;
+        document.getElementById('grid-container').innerHTML = html + '</table>';
     }
 
-    function revealSolution() {
-        renderGrid(solvedGrid);
+    function checkGrid() {
+        const inputs = document.querySelectorAll('.user-cell input');
+        let win = true;
+        inputs.forEach(input => {
+            let r = input.dataset.r, c = input.dataset.c, val = parseInt(input.value);
+            if (val === solvedGrid[r][c]) {
+                input.classList.remove('error');
+            } else {
+                input.classList.add('error');
+                win = false;
+            }
+        });
+        if (win && Array.from(inputs).every(i => i.value !== "")) {
+            alert("Félicitations ! Temps : " + document.getElementById('timer-display').innerText);
+            clearInterval(timerInterval);
+        }
     }
 
-    // Lancer au démarrage
+    function solvePuzzle() {
+        const inputs = document.querySelectorAll('.user-cell input');
+        inputs.forEach(input => {
+            input.value = solvedGrid[input.dataset.r][input.dataset.c];
+            input.classList.remove('error');
+        });
+        clearInterval(timerInterval);
+    }
+
+    function clearUserInputs() {
+        document.querySelectorAll('.user-cell input').forEach(i => {
+            i.value = "";
+            i.classList.remove('error');
+        });
+    }
+
     generateNewGame();
 </script>
 
